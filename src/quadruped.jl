@@ -277,10 +277,11 @@ end
 
 function initialize_visualizer(a1::UnitreeA1)
     vis = Visualizer()
+    curdir = pwd()
     delete!(vis)
     cd(joinpath(@__DIR__,"..","a1","urdf"))
     mvis = MechanismVisualizer(a1.mech, URDFVisuals(URDFPATH), vis)
-    cd(@__DIR__)
+    cd(curdir)
     return mvis
 end
 
@@ -410,3 +411,8 @@ end
 # end
 # qs = [state2mech(x[1:15]) for x in X]
 # animate(mvis, Vector(times), Vector.(qs))
+
+
+function run_tests()
+    include(joinpath(@__DIR__,"..","test","q1.jl"))
+end

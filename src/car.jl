@@ -95,3 +95,7 @@ function plot_region!(vis, Δx, Δy, origin=(0,0), color=colorant"rgba(0,255,0,0
     box = Rect3D(Point3f0(-Δx+origin[1],-Δy+origin[2],-0.1), Point3f0(2Δx,2Δy,0.1))
     setobject!(vis["ic"], box, MeshPhongMaterial(color=color))
 end
+
+function run_tests()
+    include(joinpath(@__DIR__,"..","test","q2.jl"))
+end
