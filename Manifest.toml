@@ -1088,7 +1088,7 @@ version = "0.3.0"
 
 [[RobotZoo]]
 deps = ["LinearAlgebra", "Parameters", "RobotDynamics", "Rotations", "StaticArrays"]
-path = "/home/brian/.julia/dev/RobotZoo"
+git-tree-sha1 = "198447bea0f106cd791aa95eb9799b2808e93d7c"
 uuid = "74be38bb-dcc2-4b9e-baf3-d6373cd95f10"
 version = "0.2.1"
 
