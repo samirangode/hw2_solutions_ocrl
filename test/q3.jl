@@ -89,6 +89,7 @@ end
 
 @testset "Part d" begin
 # Part d
+Np = 50*(n+m)
 Nd2 = 50*(n+4)
 @test size(mpc2.A) == (Nd2,Np)
 
