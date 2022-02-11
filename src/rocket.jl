@@ -104,7 +104,3 @@ function comparison_plot(model, Z...)
     hline!(p[4], rad2deg.([RobotZoo.umax(model)[2], RobotZoo.umin(model)[2]]), ls=:dash, c=:red, label="limits")
     p
 end
-
-function run_tests()
-    include(joinpath(@__DIR__,"..","test","q3.jl"))
-end
