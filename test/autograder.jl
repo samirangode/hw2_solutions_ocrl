@@ -1,9 +1,11 @@
+
 module Autograder
 using NBInclude
 using Test
 using Formatting
 using Crayons
 using Crayons.Box
+using SHA
 
 const INDENT_SIZE = 2
 const autograder = true
@@ -35,11 +37,13 @@ function record(ts::CustomTestSet, res::Fail)
     points = getpoints(res.source); 
     ts.points_missed += points
     println("Test failed $(ts.description)")
+    push!(ts.results, res)
     display(res)
 end
 function record(ts::CustomTestSet, res::Error)
     points = getpoints(res.source); 
     ts.points_missed += points
+    push!(ts.results, res)
     display(res)
 end
 function finish(ts::CustomTestSet)
@@ -76,7 +80,7 @@ function getdescriptionwidth(ts::CustomTestSet)
             width = max(width, child_width)
         end
     end
-    return width
+    return max(width, 15)
 end
 
 function getscorecolor(pass, total)
@@ -95,26 +99,42 @@ function getscorecolor(pass, total)
 end
 
 allpassed(ts::CustomTestSet) = ts.points_total == ts.points_passed
-function printresult(ts::CustomTestSet; width=getdescriptionwidth(ts))
+function printresult(ts::CustomTestSet; width=getdescriptionwidth(ts), io=stdout)
     indent = " "^(ts.depth * INDENT_SIZE)
     fspec1 = "{:<$(width)}"
     fspec2 = "{:<5d}"
     fspec3 = "{:<5}"
     if ts.depth == 0
-        println(BOLD, format(fspec1,"\nTest Summary:"), "  | ", CYAN_FG(format(fspec3,"Score")), " ", BLUE_FG(format(fspec3, "Total")))
+        if io isa IOStream
+            println(io, format(fspec1,"\nTest Summary:"), "  | ", format(fspec3,"Score"), " ", format(fspec3, "Total"))
+        else
+            println(BOLD, format(fspec1,"\nTest Summary:"), "  | ", CYAN_FG(format(fspec3,"Score")), " ", BLUE_FG(format(fspec3, "Total")))
+        end
     end
     fail = round(Int,ts.points_missed)
     total = round(Int,ts.points_total)
     pass = total - fail 
     color = getscorecolor(pass, total) 
-    println(crayon"!bold", format(fspec1, indent * ts.description), BOLD, " | ", color(format(fspec2,pass)), " ", BLUE_FG(format(fspec2, total)))
+    if io isa IOStream
+        println(io, format(fspec1, indent * ts.description), " | ", format(fspec2,pass), " ", format(fspec2, total))
+    else
+        println(crayon"!bold", format(fspec1, indent * ts.description), BOLD, " | ", color(format(fspec2,pass)), " ", BLUE_FG(format(fspec2, total)))
+    end
     # println(format(fspec, indent * ts.description, ts.points_passed, ts.points_total))
     for r in ts.results
-        printresult(r, width=width)
+        printresult(r, width=width, io=io)
     end
 end
-printresult(res; width=0) = nothing
-printresult(res::Fail; width=0) = nothing 
+printresult(res; width=0, io=stdout) = nothing
+printresult(res::Fail; width=0, io=stdout) = nothing 
+
+function printtofile(io, ts::CustomTestSet)
+    for res in ts.results
+        printtofile(io, res)
+    end
+end
+printtofile(io, res::Pass) = nothing
+printtofile(io, res::Union{Fail,Error}) = println(io, res)
 
 function getsourceline(src::LineNumberNode)
     filestr = string(src.file)
@@ -178,8 +198,9 @@ function getnotebookfile(notebookname::String; repodir=joinpath(@__DIR__, ".."))
     return nbfile
 end
 
-function gradequestion(notebookname::String; verbose=true)
-    nbfile = getnotebookfile(notebookname)
+function gradequestion(notebookname::String; verbose=true, repodir=joinpath(@__DIR__, ".."), resfile::Bool=false)
+    verbose && @info "Grading $notebookname in $repodir"
+    nbfile = getnotebookfile(notebookname; repodir=repodir)
     name = splitdir(splitext(nbfile)[1])[2]
 
     # Convert file to regular Julia file
@@ -211,6 +232,7 @@ function gradequestion(notebookname::String; verbose=true)
 
     # Add up all the points for the problem
     gettotalpoints(ts, testtext)
+    ts.points_total = 0
     for res in ts.results
         if res isa CustomTestSet
             ts.points_total += res.points_total
@@ -221,15 +243,43 @@ function gradequestion(notebookname::String; verbose=true)
     if verbose
         printresult(ts)
     end
+
     return (ts.points_total - ts.points_missed, ts.points_total), ts
+end
+
+function createresfile(notebookname, ts::CustomTestSet; repodir=joinpath(@__DIR__, ".."), adjustment=nothing)
+    open(joinpath(repodir, notebookname * "_results.txt"), "w") do f
+        println(f, "#"^50)
+        println(f, "# Output for Failed Tests")
+        println(f, "#"^50)
+        printtofile(f, ts)
+        println(f, "\n")
+
+        println(f, "#"^50)
+        println(f, "# Autograder results")
+        println(f, "#"^50)
+        printresult(ts, io=f)
+        println(f, "\n")
+
+        println(f, "#"^50)
+        println(f, "# Final Score")
+        println(f, "#"^50)
+        println()
+        if isnothing(adjustment)
+            print("Enter the point adjustment for the assignment as an integer: ")
+            adjustment = parse(Int,readline())
+        end
+        println(f, "TA Point Adjustment: ", adjustment)
+        println(f, "Final Score: $(ts.points_total - ts.points_missed + adjustment) / $(ts.points_total)")
+    end
 end
 
 """
 Check if the test sets of the current repo are equal to the test sets of the 
     solution repo, to make sure they haven't been tampered with.
 """
-function checktestsets(notebookname::String, solutiondir::String)
-    nbfile = getnotebookfile(notebookname)
+function checktestsets(notebookname::String, solutiondir::String; repodir=joinpath(@__DIR__, ".."))
+    nbfile = getnotebookfile(notebookname, repodir=repodir)
     name = splitdir(splitext(nbfile)[1])[2]
     outfile = joinpath(dirname(nbfile), "$(name)_testsets.jl")
     nbexport(outfile, nbfile, regex=r"\s*@testset*", markdown=false)
@@ -240,11 +290,26 @@ function checktestsets(notebookname::String, solutiondir::String)
 
     solcontents = readlines(soltests)
     nbcontents = readlines(outfile)
-    rm(soltests)
-    rm(outfile)
     if (solcontents != nbcontents)
         @warn "Student's testsets do not match the solution test sets for $name. They may have been tampered with."
+    else
+        rm(soltests)
+        rm(outfile)
     end
+    return solcontents == nbcontents
+end
+
+function checkresfile(notebookname, solutiondir; repodir=joinpath(@__DIR__, ".."))
+    function getsha(name, dir)
+        resfile = joinpath(dir, "src", lowercase(name) * ".jld2")
+        f = open(resfile, "r")
+        sha = sha256(f)
+        close(f)
+        return sha
+    end
+    sha_student = getsha(notebookname, repodir) 
+    sha_solution = getsha(notebookname, solutiondir) 
+    return sha_student == sha_solution
 end
 
 end

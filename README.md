@@ -1,5 +1,5 @@
 # HW2: Diving into LQR
-## Due date: Tuesday, March 9, 2021
+## Due date: Friday, February 25, 2022
 
 In this homework we'll be delving into LQR and some QP-based MPC. Here's an overview of the problems.
 1. Stabilize the quadruped on one leg using LQR.

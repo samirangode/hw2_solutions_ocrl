@@ -16,6 +16,11 @@ solutiondir = get(ARGS, 1, joinpath(@__DIR__, ".."))
 
 # Grade all of the questions
 modules = [@eval $(Symbol("Q" * string(i))) for i = 1:NUMQUESTIONS]
+points,ts = modules[1].grade()
+points,ts = modules[2].grade()
+points,ts = modules[3].grade()
+
+
 results = map(modules) do mod
     mod.checktestsets(solutiondir)
     mod.grade()[1]
