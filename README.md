@@ -44,6 +44,21 @@ super helpful if you ever need to go back to a previous version because you brok
 5. Come to office hours
 
 
+## Running the Autograder
+From a terminal in the root of your repository, run the following command:
+```shell
+julia --project=. test/runtests.jl
+```
+You can select which questions to grade by passing them in as arguments. For example, to 
+grade questions 1 and 3, use:
+```shell
+julia --project=. test/runtests.jl 1 3
+```
+We will use code very similar to the autograder included in the student repos to 
+grade your homeworks, so if your code passes the autograder locally on your computer, you 
+should be good!
+
+
 ## Questions / Issues
 If you have questions as you work through the homework, please post to the 
 `hw2` folder on Pizza. 
